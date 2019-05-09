@@ -5,6 +5,7 @@ Rlib = '/data/manke/group/ferrari/ShinyApps/Rlib_3.5'
 .libPaths(Rlib)
 # 
 library(shiny, lib.loc = Rlib)
+library(shinyalert, lib.loc = Rlib)
 library(shinydashboard, lib.loc = Rlib)
 #library(dashboardthemes)
 library(ggplot2, lib.loc = Rlib)
@@ -26,7 +27,7 @@ ui <- dashboardPage(
   dashboardHeader(title="GO Analysis clusterProfiler", titleWidth = 300),
   dashboardSidebar(
     sidebarMenu(
-      menuItem("  Visualize DE Analysis", tabName = "a", icon = icon("chart-line")),
+      menuItem("  Load DE Analysis Table", tabName = "a", icon = icon("chart-line")),
       menuItem("  GO Enrichment Analysis", tabName = "b", icon = icon("dna")),
       menuItem("  Compare Clusters", tabName = "e", icon = icon("th-list")),
       menuItem("sessionInfo", tabName = "c", icon = icon("fingerprint")),
@@ -80,7 +81,10 @@ ui <- dashboardPage(
                                              choices = NULL),       
                                          
                                  selectInput("select_fdr", "pvalue adjusted", 
-                                             choices = NULL),        
+                                             choices = NULL),  
+                                 
+                                 useShinyalert(),
+                                 actionButton("confirm_inp","Confirm Input Data"),
                                     
                                          
                                          width = 3, align = "center"),
@@ -121,140 +125,142 @@ ui <- dashboardPage(
       # Second tab content
       tabItem(tabName = "b",
               
-              tabsetPanel(
-                tabPanel("Input Data ",
-                         
-                         br(), 
-                         
-                         sidebarLayout(position="right",
-                                       
-                                       box(title = "Control Panel", status = "primary", solidHeader = TRUE,
-                                           collapsible = TRUE, align="center", width=3,
-                                                    br(),
-                                                    tabsetPanel(
-                                                      tabPanel("Input Data ",
-                                                               
-                                                               br(), 
-                                                               selectInput("model_organism", "Model Organism", 
-                                                                           choices = list("Homo sapiens" = "org.Hs.eg.db", 
-                                                                                          "Mus musculus" = "org.Mm.eg.db",
-                                                                                          "Drosophila melanogaster" = "org.Dm.eg.db"),
-                                                                           selected = "org.Mm.eg.db"),
-                                                        
-                                                               
-                                                               # fluidRow(
-                                                               #   fileInput( "gtf", "Upload your GTF of reference (optional)")
-                                                               #  ),
-                                                               
-                                                               selectInput("target", "Target Set", 
-                                                                           choices = list("All DE Genes" = "All", 
-                                                                                          "Upregulated Genes" = "up",
-                                                                                          "Downregulated Genes" = "down"),
-                                                                           selected = "All"),
-                                                              
-                                                               selectInput("background", "Background Set", 
-                                                                           choices = list("Expressed Genes" = "back_expr", 
-                                                                                          "All Genes" = "back_genome"),
-                                                                           selected = "back_expr"),
-                                                               
-                                                               br()
-                                                               
-                                                      ),
-                                                      tabPanel("Parameters", 
-                                                               
-                                                               br(),
-                                                               selectInput("type_analysis", "Type of Analysis", 
-                                                                           choices = list("GO over-representation test" = "EnrichGO"
-                                                                                          #"GO classification" = "groupGO",
-                                                                                          #"KEGG over-represeantion test" = "EnrichKEGG",
-                                                                                          #"Disease Analysis" = "EnrichDO",
-                                                                                          #"Reactome Pathway Analysis" = "EnrichPathway",
-                                                                                          #"DAVID Functional Analysis" = "EnrichDAVID",
-                                                                                          #"Universal Enrichment Analisys" = "enricher"
-                                                                           ),
-                                                                           selected = "EnrichGO"),
-                                                               
-                                                               selectInput("ont", "Subontology", 
-                                                                           choices = list("Molecular Functions" = "MF",
-                                                                                          "Biological Processes" = "BP", 
-                                                                                          "Cellular Compartments" = "CC",
-                                                                                          "All" = "All"
-                                                                           ),
-                                                                           selected = "BP"),
-                                                               
-                                                               column(6, numericInput("pvalue_cutoff", "P-value threshold", value = 0.05)),
-                                                               column(6, numericInput("qvalue_cutoff", "Q-value threshold", value = 0.05)),
-                                                               
-                                                               selectInput("pAdjustMethod", "P-value Adjust Method", 
-                                                                           choices = list("Benjamini-Hochberg" = "BH",
-                                                                                          "Bonferroni" = "bonferroni",
-                                                                                          "False Discovery Rate" = 'fdr',
-                                                                                          "Holm" = "holm",
-                                                                                          "Hochberg" = "hochberg",
-                                                                                          "Hommel" = "hommel",
-                                                                                          "Benjamini-Yekutieli"="BY"
-                                                                           ),
-                                                                           selected = "BH")
-                                                               
-                                                               
-                                                               
-                                                      )
-                                                      
-                                                    ),
-                                                    
-                                                    actionButton("submit_GO","Submit GO Analysis")
-                                                    
-                                                    
-                                       ),
-                                       
-                                       mainPanel(
+              sidebarLayout(position="left",
+                            
+                            box(title = "Control Panel", status = "primary", solidHeader = TRUE,
+                                                             collapsible = TRUE, align="center", width=3,
+                                                                      br(),
+                                                                      tabsetPanel(
+                                                                        tabPanel("Input Data ",
 
-                                         column(7, plotOutput("GO_input")), align="center"   #imageOutput("GO_input")
-                                         
-                                       )
-                                       
-                         )
-                ),
-                
-                tabPanel("Visualization",
-                         br(),
-                         navlistPanel(
-                           
-                           tabPanel("Barplot", 
-                                    sidebarLayout(position="right",
-                                                  
-                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
-                                                      collapsible = F, align="center", width=3,
-                                                      numericInput("num_show_1", "", value = 12)),
-                                                  
-                                                  mainPanel(withSpinner(plotOutput("barplot"), color="#0dc5c1")))),
-                           tabPanel("Dotplot", 
-                                    sidebarLayout(position="right",
-                                                  
-                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
-                                                      collapsible = F, align="center", width=3,
-                                                      numericInput("num_show_2", "", value = 12)),
-                                                  
-                                                  mainPanel(withSpinner(plotOutput("dotplot"), color="#0dc5c1")))),
-                           tabPanel("Emapplot", 
-                                    sidebarLayout(position="right",
-                                                  
-                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
-                                                      collapsible = F, align="center", width=3,
-                                                      numericInput("num_show_3", "", value = 12)),
-                                          
-                                                  mainPanel(withSpinner(plotOutput("emapplot"), color="#0dc5c1")))),
-                           
-                           
-                           #tabPanel("plotGOgraph", withSpinner(plotOutput("plotgograph"), color="#0dc5c1")),
-                           widths = c(2,8))      
-                ),
-                tabPanel("Result Table", br(),
-                         downloadButton('downloadData', 'Download'),
-                         br(),
-                         br(), 
-                         dataTableOutput("GO_output_table") %>% withSpinner(color="#0dc5c1")))
-      
+                                                                                 br(),
+                                                                                 selectInput("model_organism", "Model Organism",
+                                                                                             choices = list("Homo sapiens" = "org.Hs.eg.db",
+                                                                                                            "Mus musculus" = "org.Mm.eg.db",
+                                                                                                            "Drosophila melanogaster" = "org.Dm.eg.db"),
+                                                                                             selected = "org.Mm.eg.db"),
+
+
+                                                                                 # fluidRow(
+                                                                                 #   fileInput( "gtf", "Upload your GTF of reference (optional)")
+                                                                                 #  ),
+
+                                                                                 selectInput("target", "Target Set",
+                                                                                             choices = list("All DE Genes" = "All",
+                                                                                                            "Upregulated Genes" = "up",
+                                                                                                            "Downregulated Genes" = "down"),
+                                                                                             selected = "All"),
+
+                                                                                 selectInput("background", "Background Set",
+                                                                                             choices = list("Expressed Genes" = "back_expr",
+                                                                                                            "All Genes" = "back_genome"),
+                                                                                             selected = "back_expr"),
+
+                                                                                 br()
+
+                                                                        ),
+                                                                        tabPanel("Parameters",
+
+                                                                                 br(),
+                                                                                 selectInput("type_analysis", "Type of Analysis",
+                                                                                             choices = list("GO over-representation test" = "EnrichGO"
+                                                                                                            #"GO classification" = "groupGO",
+                                                                                                            #"KEGG over-represeantion test" = "EnrichKEGG",
+                                                                                                            #"Disease Analysis" = "EnrichDO",
+                                                                                                            #"Reactome Pathway Analysis" = "EnrichPathway",
+                                                                                                            #"DAVID Functional Analysis" = "EnrichDAVID",
+                                                                                                            #"Universal Enrichment Analisys" = "enricher"
+                                                                                             ),
+                                                                                             selected = "EnrichGO"),
+
+                                                                                 selectInput("ont", "Subontology",
+                                                                                             choices = list("Molecular Functions" = "MF",
+                                                                                                            "Biological Processes" = "BP",
+                                                                                                            "Cellular Compartments" = "CC",
+                                                                                                            "All" = "All"
+                                                                                             ),
+                                                                                             selected = "BP"),
+
+                                                                                 column(6, numericInput("pvalue_cutoff", "P-value threshold", value = 0.05)),
+                                                                                 column(6, numericInput("qvalue_cutoff", "Q-value threshold", value = 0.05)),
+
+                                                                                 selectInput("pAdjustMethod", "P-value Adjust Method",
+                                                                                             choices = list("Benjamini-Hochberg" = "BH",
+                                                                                                            "Bonferroni" = "bonferroni",
+                                                                                                            "False Discovery Rate" = 'fdr',
+                                                                                                            "Holm" = "holm",
+                                                                                                            "Hochberg" = "hochberg",
+                                                                                                            "Hommel" = "hommel",
+                                                                                                            "Benjamini-Yekutieli"="BY"
+                                                                                             ),
+                                                                                             selected = "BH")
+
+
+
+                                                                        )
+
+                                                                      ),
+                                                                      useShinyalert(),
+                                                                      actionButton("submit_GO","Submit GO Analysis"),
+                                                                      br(),
+                                                                      br(),
+                                                                      plotOutput("GO_input", height = "250px")
+                                                                      #column(7, plotOutput("GO_input"))
+
+
+                                                         ),
+                            
+                          
+                            
+                            mainPanel(
+                              
+                              tabsetPanel(
+                                
+                                tabPanel("Visualization",
+                                                    br(),
+                                                    navlistPanel(
+
+                                                      tabPanel("Barplot",
+                                                               sidebarLayout(position="right",
+
+                                                                             box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                 collapsible = F, align="center", width=4,
+                                                                                 numericInput("num_show_1", "", value = 12)),
+
+                                                                             mainPanel(width = 12, withSpinner(plotOutput("barplot"), color="#0dc5c1")))),
+                                                      tabPanel("Dotplot",
+                                                               sidebarLayout(position="right",
+
+                                                                             box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                 collapsible = F, align="center", width=4,
+                                                                                 numericInput("num_show_2", "", value = 12)),
+
+                                                                             mainPanel(width = 12, withSpinner(plotOutput("dotplot"), color="#0dc5c1")))),
+                                                      tabPanel("Emapplot",
+                                                               sidebarLayout(position="right",
+
+                                                                             box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                 collapsible = F, align="center", width=4,
+                                                                                 numericInput("num_show_3", "", value = 12)),
+
+                                                                             mainPanel(width = 12, withSpinner(plotOutput("emapplot"), color="#0dc5c1")))),
+
+
+                                                      #tabPanel("plotGOgraph", withSpinner(plotOutput("plotgograph"), color="#0dc5c1")),
+                                                      widths = c(2,8))
+                                           ),
+                                           tabPanel("Result Table", br(),
+                                                    downloadButton('downloadData', 'Download'),
+                                                    br(),
+                                                    br(),
+                                                    dataTableOutput("GO_output_table") %>% withSpinner(color="#0dc5c1"))
+
+                              )
+                              
+                              
+                            )
+                            
+                            )
               
       ),
       
@@ -284,6 +290,7 @@ ui <- dashboardPage(
                                               ),
                                               selected = "BP"),
                                   br(),
+                                  useShinyalert(),
                                   actionButton("submit_GO_cl1","Submit Compare Cluster Analysis")
                                   ),
                                 
@@ -430,7 +437,7 @@ ui <- dashboardPage(
                        downloadButton("DDS_v", 'Download Vignette'),
                        br(),
                        br(),
-                       downloadButton("DDS", 'Download Sample Dataset')
+                       downloadButton("DDS", 'Download Sample Dataset (mouse)')
  
                        #tabPanel("Docs",
                        #        includeHTML("/data/manke/group/shiny/ferrari/clusterProfiler_GOenrich/ShinyApp_documentation/Documentation_ShinyApp_clusterProfiler.html")
@@ -447,12 +454,21 @@ ui <- dashboardPage(
   )
 )
 
+options(shiny.maxRequestSize=30*1024^2) 
+
 server <- function(input, output, session) { 
 
   ###############################
   #### Visualize DE Analysis ####
   ###############################
 
+  
+  observeEvent(input$confirm_inp, {
+    # Show a modal when the button is pressed
+    shinyalert("PERFECT!", "Your data have been uploaded. Click on the 'MAplot-Volcano P  lot' tab to visualize your DE analysis and set significance thresholds. You can visualize and interrogate the set of significant genes by clicking on the 'Selected Significan Genes' tab!", type = "success")
+  })
+  
+  
   data_in = reactive({
     req(input$file)
     library(clusterProfiler, lib.loc = Rlib)
@@ -561,20 +577,25 @@ server <- function(input, output, session) {
 
     vd = venn.diagram(target_back(),
                       category.names = c("target","backgr."),
+                      height = 300, 
+                      width = 300,
                       fill = c(1,4),
                       alpha = 0.3,
                       filename = NULL,
                       lwd = 1,
                       lty = 'blank',
                       output = F ,
-                      cex = 2,
-                      cat.cex = 2,
+                      cex = 1,
+                      cat.cex = 1,
                       resolution = 120)
     grid.newpage()
     grid.draw(vd)
   })
 
-
+  observeEvent(input$submit_GO, {
+    # Show a modal when the button is pressed
+    shinyalert("SUPER!", "The analysis will take few minutes to complete. The result will be visualized in this page. Click on the 'Result Table' tab to visualize and download the result table!", type = "success")
+  })
 
   ego_result = eventReactive(input$submit_GO, {
 
@@ -649,6 +670,16 @@ server <- function(input, output, session) {
   #### Compare Clusters ####
   ##########################
 
+  observeEvent(input$submit_GO_cl1, {
+    # Show a modal when the button is pressed
+    shinyalert("GREAT!", "The analysis will take few minutes to complete. The result will be visualized in this page. Click on the 'Result Table' tab to visualize and download the result table!", type = "success")
+  })
+  
+  observeEvent(input$submit_GO_cl2, {
+    # Show a modal when the button is pressed
+    shinyalert("AMAZING!", "The analysis will take few minutes to complete. Click on the 'Visualize Results' tab to visualize your results and on the 'Result Table' tab to visualize and download the result table!", type = "success")
+  })
+  
   data_in_clust = reactive({
     req(input$file_clust)
     library(clusterProfiler, lib.loc = Rlib)
