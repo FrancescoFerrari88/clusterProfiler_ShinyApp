@@ -14,6 +14,7 @@ library(VennDiagram, lib.loc = Rlib)
 library(shinycssloaders, lib.loc = Rlib)
 library(data.table, lib.loc = Rlib)
 library(dplyr, lib.loc = Rlib)
+library(msigdbr, lib.loc = Rlib)
 #require(org.Hs.eg.db, lib.loc = Rlib)
 #require(org.Mm.eg.db, lib.loc = Rlib)
 #require(org.Dm.eg.db, lib.loc = Rlib)
@@ -29,6 +30,8 @@ ui <- dashboardPage(
     sidebarMenu(
       menuItem("  Load DE Analysis Table", tabName = "a", icon = icon("chart-line")),
       menuItem("  GO Enrichment Analysis", tabName = "b", icon = icon("dna")),
+      menuItem("  Pathway Enrichment Analysis", tabName = "f", icon = icon("code-branch")),
+      menuItem("  GSEA", tabName = "g", icon = icon("signature")),
       menuItem("  Compare Clusters", tabName = "e", icon = icon("th-list")),
       menuItem("sessionInfo", tabName = "c", icon = icon("fingerprint")),
       menuItem("Documentation", tabName = "d", icon = icon("compass"))
@@ -424,6 +427,344 @@ ui <- dashboardPage(
       )),
      
       
+      
+      #Third-1 tab content
+      tabItem(tabName = "f",
+              sidebarLayout(position="left",
+                            box(title = "Control Panel", status = "primary", solidHeader = TRUE,
+                                                   collapsible = TRUE, align="center", width=3,
+                                
+                                br(),
+                                                  tabsetPanel(
+                                                    tabPanel("Input Data ",
+
+                                                             br(),
+                                                             selectInput("model_organism_path", "Model Organism",
+                                                                         choices = list("Homo sapiens" = "org.Hs.eg.db",
+                                                                                        "Mus musculus" = "org.Mm.eg.db",
+                                                                                        "Drosophila melanogaster" = "org.Dm.eg.db"),
+                                                                         selected = "org.Mm.eg.db"),
+
+
+                                                             # fluidRow(
+                                                             #   fileInput( "gtf", "Upload your GTF of reference (optional)")
+                                                             #  ),
+
+                                                             selectInput("target_path", "Target Set",
+                                                                         choices = list("All DE Genes" = "All",
+                                                                                        "Upregulated Genes" = "up",
+                                                                                        "Downregulated Genes" = "down"),
+                                                                         selected = "All"),
+
+                                                             selectInput("background_path", "Background Set",
+                                                                         choices = list("Expressed Genes" = "back_expr",
+                                                                                        "All Genes" = "back_genome"),
+                                                                         selected = "back_expr"),
+
+                                                             br()
+
+                                                    ),
+                                                    tabPanel("Parameters",
+
+                                                             br(),
+                                                             selectInput("type_analysis_path", "Type of Analysis",
+                                                                         choices = list("Over-representation test" = "Enricher"
+                                                                                        #"KEGG over-represeantion test" = "EnrichKEGG",
+                                                                                        #"Disease Analysis" = "EnrichDO",
+                                                                                        #"Reactome Pathway Analysis" = "EnrichPathway",
+                                                                                        #"DAVID Functional Analysis" = "EnrichDAVID",
+                                                                                        #"Universal Enrichment Analisys" = "enricher"
+                                                                         ),
+                                                                         selected = "Enricher"),
+
+                                                             selectInput("PathDB", "Pathway DB",
+                                                                         choices = list("MSigDB" = 'msig',
+                                                                                        "wikiPathway" = "wiki"
+                                                                         ),
+                                                                         selected = "msig"),
+                                                             
+                                                             conditionalPanel(
+                                                               condition = "input.PathDB=='msig'",
+                                                               checkboxGroupInput("msig_cat", "Choose MSigDB category",
+                                                                           choices = list("Hallmark gene sets (H)" = 'H',
+                                                                                          "Positional gene sets (C1)" = "C1",
+                                                                                          "Curated gene sets (C2)" = "C2",
+                                                                                          "Motif gene sets (C3)" = "C3",
+                                                                                          "Computational gene sets (C4)" = "C4",
+                                                                                          "GO gene sets (C5)" = "C5",
+                                                                                          "Oncogenic gene sets (C6)" = "C6",
+                                                                                          "Immunologic gene sets (C7)" = "C7"
+                                                                                          ), selected = c("H","C5"))
+                                                               ),
+
+                                                             column(6, numericInput("pvalue_cutoff_path", "P-value threshold", value = 0.05)),
+                                                             column(6, numericInput("qvalue_cutoff_path", "Q-value threshold", value = 0.05)),
+
+                                                             selectInput("pAdjustMethod_path", "P-value Adjust Method",
+                                                                         choices = list("Benjamini-Hochberg" = "BH",
+                                                                                        "Bonferroni" = "bonferroni",
+                                                                                        "False Discovery Rate" = 'fdr',
+                                                                                        "Holm" = "holm",
+                                                                                        "Hochberg" = "hochberg",
+                                                                                        "Hommel" = "hommel",
+                                                                                        "Benjamini-Yekutieli"="BY"
+                                                                         ),
+                                                                         selected = "BH")
+
+
+
+                                                    )
+
+                                                  ),
+                                                  useShinyalert(),
+                                                  actionButton("submit_path","Submit Pathway Analysis"),
+                                                  # br(),
+                                                  # br(),
+                                                  plotOutput("GO_input_path", height = "250px")
+                                                  #column(7, plotOutput("GO_input"))
+
+                                
+                                ),
+                            mainPanel(width = 9,
+                                         conditionalPanel( condition = "input.type_analysis_path =='Enricher'", 
+                                                        tabsetPanel(
+
+                                                                tabPanel("Visualization",
+                                                                         br(),
+                                                                         navlistPanel(
+                                                                           
+                                                                           tabPanel("Cnetplot",
+                                                                                    sidebarLayout(position="right",
+                                                                                                  
+                                                                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                                      collapsible = F, align="center", width=4,
+                                                                                                      numericInput("num_show_0_path", "", value = 3)),
+                                                                                                  
+                                                                                                  mainPanel(width = 12, withSpinner(plotOutput("cnetplot_path"), color="#0dc5c1")))),
+                                                                           
+
+                                                                           tabPanel("Barplot",
+                                                                                    sidebarLayout(position="right",
+
+                                                                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                                      collapsible = F, align="center", width=4,
+                                                                                                      numericInput("num_show_1_path", "", value = 12)),
+
+                                                                                                  mainPanel(width = 12, withSpinner(plotOutput("barplot_path"), color="#0dc5c1")))),
+                                                                           tabPanel("Dotplot",
+                                                                                    sidebarLayout(position="right",
+
+                                                                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                                      collapsible = F, align="center", width=4,
+                                                                                                      numericInput("num_show_2_path", "", value = 12)),
+
+                                                                                                  mainPanel(width = 12, withSpinner(plotOutput("dotplot_path"), color="#0dc5c1")))),
+                                                                           tabPanel("Emapplot",
+                                                                                    sidebarLayout(position="right",
+
+                                                                                                  box(title = "Number of GO terms to show", status = "primary", solidHeader = TRUE,
+                                                                                                      collapsible = F, align="center", width=4,
+                                                                                                      numericInput("num_show_3_path", "", value = 12)),
+
+                                                                                                  mainPanel(width = 12, withSpinner(plotOutput("emapplot_path"), color="#0dc5c1")))),
+
+
+                                                                           #tabPanel("plotGOgraph", withSpinner(plotOutput("plotgograph"), color="#0dc5c1")),
+                                                                           widths = c(2,8))
+                                                                ),
+                                                                tabPanel("Result Table", br(),
+                                                                         downloadButton('downloadData_path', 'Download'),
+                                                                         br(),
+                                                                         br(),
+                                                                         dataTableOutput("GO_output_table_path") %>% withSpinner(color="#0dc5c1"))
+
+                                                              ))
+                                      
+                                      # conditionalPanel(condition = "input.type_analysis_path =='gsea'", 
+                                      #                   tabsetPanel(
+                                      #                     tabPanel("Visualization",
+                                      #                              
+                                      #                              sidebarLayout(position="right",
+                                      #                                            
+                                      #                                            box(title = "gene set ID", status = "primary", solidHeader = TRUE,
+                                      #                                                collapsible = F, align="center", width=4,
+                                      #                                                numericInput("gsea_id", "", value = 1)),
+                                      #                                            
+                                      #                                            mainPanel(width = 12, withSpinner(plotOutput("edgeplot_path"), color="#0dc5c1")))),
+                                      #                              
+                                      #                              
+                                      #                              
+                                      #                     tabPanel("Result Table",
+                                      #                              dataTableOutput("GO_output_table_path_gsea") %>% withSpinner(color="#0dc5c1"))
+                                      #                   ))
+                                      
+                                      
+                                      
+                                                              ))
+              
+              
+      ),
+      
+      
+      
+      #Fourth-1 tab content
+      tabItem(tabName = "g",
+              
+              sidebarLayout(position="left",
+                            box(title = "Control Panel", status = "primary", solidHeader = TRUE,
+                                collapsible = TRUE, align="center", width=3,
+
+                                br(),
+                                tabsetPanel(
+                                  tabPanel("Input Data ",
+
+                                           br(),
+                                           selectInput("model_organism_gsea", "Model Organism",
+                                                       choices = list("Homo sapiens" = "org.Hs.eg.db",
+                                                                      "Mus musculus" = "org.Mm.eg.db",
+                                                                      "Drosophila melanogaster" = "org.Dm.eg.db"),
+                                                       selected = "org.Mm.eg.db"),
+
+
+                                           # fluidRow(
+                                           #   fileInput( "gtf", "Upload your GTF of reference (optional)")
+                                           #  ),
+
+                                           selectInput("ranking_criteria", "Ranking Criteria",
+                                                       choices = list("Log2 Fold Change" = "lfc"
+                                                                      #"Adjusted pvalue" = "pval"
+                                                                      ),
+                                                       selected = "lfc"),
+
+                                           br()
+
+                                  ),
+                                  tabPanel("Parameters",
+
+                                           br(),
+                                           selectInput("type_analysis_gsea", "Type of Analysis",
+                                                       choices = list("Gene Set Enrichment Analysis" = "gsea"),
+                                                       selected = "gsea"),
+
+                                           selectInput("PathDB_gsea", "Pathway DB",
+                                                       choices = list("MSigDB" = 'msig',
+                                                                      "wikiPathway" = "wiki"
+                                                       ),
+                                                       selected = "msig"),
+
+                                           conditionalPanel(
+                                             condition = "input.PathDB_gsea=='msig'",
+                                             checkboxGroupInput("msig_cat_gsea", "Choose MSigDB category",
+                                                                choices = list("Hallmark gene sets (H)" = 'H',
+                                                                               "Positional gene sets (C1)" = "C1",
+                                                                               "Curated gene sets (C2)" = "C2",
+                                                                               "Motif gene sets (C3)" = "C3",
+                                                                               "Computational gene sets (C4)" = "C4",
+                                                                               "GO gene sets (C5)" = "C5",
+                                                                               "Oncogenic gene sets (C6)" = "C6",
+                                                                               "Immunologic gene sets (C7)" = "C7"
+                                                                ), selected = c("H"))
+                                           ),
+
+                                           column(6, numericInput("pvalue_cutoff_gsea", "P-value threshold", value = 0.05)),
+                                           #column(6, numericInput("qvalue_cutoff_gsea", "Q-value threshold", value = 0.05)),
+
+                                           selectInput("pAdjustMethod_gsea", "P-value Adjust Method",
+                                                       choices = list("Benjamini-Hochberg" = "BH",
+                                                                      "Bonferroni" = "bonferroni",
+                                                                      "False Discovery Rate" = 'fdr',
+                                                                      "Holm" = "holm",
+                                                                      "Hochberg" = "hochberg",
+                                                                      "Hommel" = "hommel",
+                                                                      "Benjamini-Yekutieli"="BY"
+                                                       ),
+                                                       selected = "BH")
+
+
+
+                                  )
+
+                                ),
+                                useShinyalert(),
+                                actionButton("submit_gsea","Submit GSEA Analysis")
+                            ),
+
+                            mainPanel(width = 9,
+                                                    tabsetPanel(
+                                                          tabPanel("Visualization",
+                                                                   br(),
+                                                                   navlistPanel(
+
+                                                                     tabPanel("Running Score",
+                                                                              
+                                                                              sidebarLayout(position="right",
+                                                                                            
+                                                                                          box(title = "gene set rank", status = "primary", solidHeader = TRUE,
+                                                                                          collapsible = F, align="center", width=4,
+                                                                                          numericInput("gsea_id_1", "", value = 1)),
+                                                                                          
+                                                                                          mainPanel(width = 12, withSpinner(plotOutput("runningscore_gsea"), color="#0dc5c1")))
+
+                                                                              
+                                                                              ),
+
+
+                                                                     tabPanel("Ridge Plot",
+                                                                              sidebarLayout(position="right",
+
+                                                                                            box(title = "Number of gene sets to show", status = "primary", solidHeader = TRUE,
+                                                                                                collapsible = F, align="center", width=4,
+                                                                                                numericInput("gsea_id_2", "", value = 15)),
+
+                                                                                            mainPanel(width = 12, withSpinner(plotOutput("ridgeplot_gsea"), color="#0dc5c1")))),
+                                                                     
+                                                                     
+                                                                     # tabPanel("Heatplot",
+                                                                     #          
+                                                                     #          sidebarLayout(position="right",
+                                                                     #                        
+                                                                     #                        box(title = "Number of gene sets to show", status = "primary", solidHeader = TRUE,
+                                                                     #                            collapsible = F, align="center", width=4,
+                                                                     #                            numericInput("gsea_id_3", "", value = 15)),
+                                                                     #                        
+                                                                     #                        mainPanel(width = 12, withSpinner(plotOutput("heatplot"), color="#0dc5c1")))
+                                                                     #          
+                                                                     #          
+                                                                     # ),
+                                                                     
+                                                                     
+                                                                     tabPanel("Emapplot",
+                                                                              
+                                                                              sidebarLayout(position="right",
+                                                                                            
+                                                                                            box(title = "Number of gene sets to show", status = "primary", solidHeader = TRUE,
+                                                                                                collapsible = F, align="center", width=4,
+                                                                                                numericInput("gsea_id_4", "", value = 15)),
+                                                                                            
+                                                                                            mainPanel(width = 12, withSpinner(plotOutput("emapplot_gsea"), color="#0dc5c1")))
+                                                                              
+                                                                              
+                                                                     ),
+
+
+
+                                                                     #tabPanel("plotGOgraph", withSpinner(plotOutput("plotgograph"), color="#0dc5c1")),
+                                                                     widths = c(2,8))
+                                                          ),
+                                                          tabPanel("Result Table", br(),
+                                                                   downloadButton('downloadData_gsea', 'Download'),
+                                                                   br(),
+                                                                   br(),
+                                                                   dataTableOutput("output_table_gsea") %>% withSpinner(color="#0dc5c1"))
+
+                                                        )
+
+
+                            ))
+
+              ),
+      
+      
       # Fourth tab content
       tabItem(tabName = "c",
               verbatimTextOutput("sessionInfo")
@@ -565,8 +906,11 @@ server <- function(input, output, session) {
     else {
       background_genes = as.vector(df$GeneID)
     }
+    
+    target = na.omit(target)
+    background_genes = na.omit(background_genes) 
 
-    lista = list(na.omit(target),na.omit(background_genes))
+    lista = list(target,background_genes)
 
     return(lista)
 
@@ -631,15 +975,15 @@ server <- function(input, output, session) {
   })
 
 
-  output$barplot = renderPlot({
+  output$barplot = renderPlot(width = 740,{
     barplot(ego_result(), drop=T, showCategory=input$num_show_1)
   })
 
-  output$dotplot = renderPlot({
+  output$dotplot = renderPlot(width = 740,{
     dotplot(ego_result(), showCategory=input$num_show_2)
   })
 
-  output$emapplot = renderPlot({
+  output$emapplot = renderPlot(width = 740,{
     emapplot(ego_result(), showCategory=input$num_show_3)
   })
 
@@ -658,14 +1002,355 @@ server <- function(input, output, session) {
       paste("Results_GO-Analysis_",Sys.Date(),".tsv", sep="")
     },
     content = function(file) {
-      write.csv(as.data.frame(ego_result()), file, quote = F, sep="\t")
+      write.table(as.data.frame(ego_result()), file, quote = F, sep="\t")
     }
   )
 
+  
+  
+  ###########################
+  #### Pathway Analysis #####
+  ###########################
+  
+  
+  target_back_path = reactive({
+    
+    df = data_plot()
+    
+    ### define target gene set
+    if (input$target_path == "All"){
+      target = as.vector(df$log2FC[df$sig == "Significant"])
+      names(target) = as.vector(df$GeneID[df$sig == "Significant"])
+    }
+    else if (input$target_path == "up"){
+      target = as.vector(df$log2FC[df$sig == "Significant" & df$log2FC > 0])
+      names(target) = as.vector(df$GeneID[df$sig == "Significant" & df$log2FC > 0])
+    }
+    else if (input$target_path == "down"){
+      target = as.vector(df$log2FC[df$sig == "Significant" & df$log2FC < 0])
+      names(target) = as.vector(df$GeneID[df$sig == "Significant" & df$log2FC < 0])
+    }
+    
+    ### define background gene set
+    if (input$background_path == "back_expr") {
+      background_genes = as.vector(df$log2FC[df$sig == "Significant" | df$sig == "Not Significant"])
+      names(background_genes) = as.vector(df$GeneID[df$sig == "Significant" | df$sig == "Not Significant"])
+    }
+    else {
+      background_genes = as.vector(df$log2FC)
+      names(background_genes) = as.vector(df$GeneID)
+    }
+    
+    target = na.omit(target)
+    background_genes = na.omit(background_genes) 
+    
+    lista = list(target,background_genes)
+    
+    return(lista)
+    
+  })
+  
+  
+  output$GO_input_path = renderPlot({      #renderImage({
+    
+    vd = venn.diagram(target_back_path(),
+                      category.names = c("target","backgr."),
+                      height = 300, 
+                      width = 300,
+                      fill = c(1,4),
+                      alpha = 0.3,
+                      filename = NULL,
+                      lwd = 1,
+                      lty = 'blank',
+                      output = F ,
+                      cex = 1,
+                      cat.cex = 1,
+                      resolution = 120)
+    grid.newpage()
+    grid.draw(vd)
+  })
+  
+  
+  observeEvent(input$submit_path, {
+    # Show a modal when the button is pressed
+    shinyalert("YOU ARE GOOD!", "The pathway enrichment analysis will take few minutes to complete. The result will be visualized on this page. Click on the 'Result Table' tab to visualize and download the result table!", type = "success")
+  })
+  
+  
+  enricher_result = eventReactive(input$submit_path, {
+    
+    #showNotification("Analysis started!")
+    
+      require(org.Hs.eg.db)
+      require(org.Mm.eg.db)
+      require(org.Dm.eg.db)
+      
+      ### translate across IDs
+      eg = bitr(names(target_back_path()[[1]]), fromType=input$id_type, toType=c("ENTREZID","ENSEMBL","SYMBOL"), OrgDb=input$model_organism_path)
+      eg = merge(eg,data_plot(), by.x = input$id_type, by.y = "GeneID")
+      #print(head(eg))
+      universe = bitr(names(target_back_path()[[2]]), fromType=input$id_type, toType=c("ENTREZID","ENSEMBL","SYMBOL"), OrgDb=input$model_organism_path)
+      universe  = merge(universe,data_plot(), by.x = input$id_type, by.y = "GeneID")
+      
+      if (input$PathDB == "wiki"){
+        
+        if (input$model_organism_path == "org.Hs.eg.db"){
+          wp2gene = read.csv("./wikipath_homo.gmt",sep="\t")
+        }
+        else if (input$model_organism_path == "org.Mm.eg.db"){
+          wp2gene = read.csv("./wikipath_mouse.gmt",sep="\t")
+        }
+        else if (input$model_organism_path == "org.Dm.eg.db"){
+          wp2gene = read.csv("./wikipath_drosophila.gmt",sep="\t")
+        }
+        
+        wp2gene = na.omit(wp2gene)
+        
+        wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
+        wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
+        wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
+      
+      }
+      
+      else if (input$PathDB == "msig"){
+        if (input$model_organism_path == "org.Hs.eg.db"){
+          organ = "Homo sapiens"
+        }
+        else if (input$model_organism_path == "org.Mm.eg.db"){
+          organ = "Mus musculus"
+        }
+        else if (input$model_organism_path == "org.Dm.eg.db"){
+          organ = "Drosophila melanogaster"
+        }
+        m_t2g <- msigdbr(species = organ, category = input$msig_cat) %>% 
+          dplyr::select(gs_name, entrez_gene)
+      }
+      
+       if (input$type_analysis_path == "Enricher") {
+        if (input$PathDB == "wiki"){
+          
+        ### run enricher for pathway analysis
+         ewp = enricher(
+          gene = eg[["ENTREZID"]],
+          universe = universe[["ENTREZID"]],
+          pAdjustMethod = input$pAdjustMethod_path,
+          qvalueCutoff = input$qvalue_cutoff_path,
+          pvalueCutoff = input$pvalue_cutoff_path,
+          TERM2GENE = wpid2gene, 
+          TERM2NAME = wpid2name)
+        
+         ewp <- setReadable(ewp, input$model_organism_path, keyType = "ENTREZID")
+        ### return enrichGO object for visualization
+        return(list(ewp,eg))}
+        
+        else if (input$PathDB == "msig"){
+          em <- enricher(eg[["ENTREZID"]],universe = universe[["ENTREZID"]], TERM2GENE=m_t2g)
+          em <- setReadable(em, input$model_organism_path, keyType = "ENTREZID")
+          return(list(em,eg))
+          }
+       }
+      
+      # else if (input$type_analysis_path == "gsea"){
+      #   
+      #   if(input$PathDB == "wiki"){
+      #   universe = universe[!duplicated(universe$ENTREZID), ]
+      #   geneList = universe$log2FC
+      #   names(geneList) = universe[["ENTREZID"]]
+      #   geneList = sort(geneList, decreasing=T)
+      #   ewp2 <- GSEA(geneList, TERM2GENE = wpid2gene, TERM2NAME = wpid2name, verbose=FALSE)
+      #   return(list(ewp2,universe))
+      #   }
+      # }
 
+    #showNotification("Analysis is completed!")
+    
+  })
+  
 
+  output$barplot_path = renderPlot(width = 740,{
+    barplot(enricher_result()[[1]], drop=T, showCategory=input$num_show_1_path)
+  })
+  
+  output$dotplot_path = renderPlot(width = 740,{
+    dotplot(enricher_result()[[1]], showCategory=input$num_show_2_path)
+  })
+  
+  output$emapplot_path = renderPlot(width = 740,{
+    emapplot(enricher_result()[[1]], showCategory=input$num_show_3_path)
+  })
+  
+  output$cnetplot_path = renderPlot(width = 740,{
+    df = enricher_result()[[2]]
+    lfc = df$log2FC[as.vector(df[,input$id_type]) %in% as.vector(names(target_back_path()[[1]]))]
+    names(lfc) = df$SYMBOL[as.vector(df[,input$id_type]) %in% as.vector(names(target_back_path()[[1]]))]
+    cnetplot(enricher_result()[[1]], foldChange = lfc, circular = F, colorEdge = F, showCategory=input$num_show_0_path)
+  })
+  
+  
+  output$GO_output_table_path = renderDataTable({
+    #print(head(as.data.frame(enricher_result())))
+    as.data.frame(enricher_result()[[1]])
+  })
+  
+  output$downloadData_path <- downloadHandler(
+    filename = function() {
+      paste("Results_Pathway-Analysis_",input$PathDB,"_",input$type_analysis_path,"_",Sys.Date(),".tsv", sep="")
+    },
+    content = function(file) {
+      write.table(as.data.frame(enricher_result()[[1]]), file, quote = F, sep="\t")
+    }
+  )
+  
+  
+  
+  
 
-
+  ################################
+  ############ GSEA ##############
+  ################################
+  
+  observeEvent(input$submit_gsea, {
+    # Show a modal when the button is pressed
+    shinyalert("COOL!", "GSEA analysis will take few minutes to complete. The result will be visualized on this page. Click on the 'Result Table' tab to visualize and download the result table!", type = "success")
+  })
+  
+  gsea_result = eventReactive(input$submit_gsea, {
+    
+    df = data_plot()
+    #showNotification("Analysis started!")
+    
+    require(org.Hs.eg.db)
+    require(org.Mm.eg.db)
+    require(org.Dm.eg.db)
+    
+    ### translate across IDs
+    universe = bitr(df$GeneID, fromType=input$id_type, toType=c("ENTREZID","ENSEMBL","SYMBOL"), OrgDb=input$model_organism_gsea)
+    universe  = merge(universe,df, by.x = input$id_type, by.y = "GeneID")
+    universe = universe[!is.na(universe$log2FC),]
+    universe = universe[!duplicated(universe$ENTREZID), ]
+    universe = universe[order(universe$log2FC, decreasing = TRUE), ]
+    
+    if (input$PathDB_gsea == "wiki"){
+      
+      if (input$model_organism_gsea == "org.Hs.eg.db"){
+        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
+      }
+      else if (input$model_organism_gsea == "org.Mm.eg.db"){
+        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
+      }
+      else if (input$model_organism_gsea == "org.Dm.eg.db"){
+        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
+      }
+      
+      wp2gene = na.omit(wp2gene)
+      
+      wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
+      wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
+      wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
+      
+      
+      geneList = universe$log2FC
+      names(geneList) = universe[["ENTREZID"]]
+      
+      ewp2 <- GSEA(geneList, 
+                   pvalueCutoff = input$pvalue_cutoff_gsea,
+                   pAdjustMethod = input$pAdjustMethod_gsea,
+                   TERM2GENE = wpid2gene, 
+                   TERM2NAME = wpid2name, 
+                   nPerm = 5000,
+                   verbose=FALSE)
+      
+      ewp_read <- setReadable(ewp2, input$model_organism_gsea, keyType = "ENTREZID")
+      return(list(ewp2,geneList,ewp_read))
+      
+      
+    }
+    
+    else if (input$PathDB_gsea == "msig"){
+      
+      if (input$model_organism_gsea == "org.Hs.eg.db"){
+        organ = "Homo sapiens"
+      }
+      else if (input$model_organism_gsea == "org.Mm.eg.db"){
+        organ = "Mus musculus"
+      }
+      else if (input$model_organism_gsea == "org.Dm.eg.db"){
+        organ = "Drosophila melanogaster"
+      }
+      m_t2g <- msigdbr(species = organ, category = input$msig_cat_gsea) %>% 
+        dplyr::select(gs_name, entrez_gene)
+      
+      geneList = universe$log2FC
+      names(geneList) = universe[["ENTREZID"]]
+      
+      em2 <- GSEA(geneList, 
+                  pvalueCutoff = input$pvalue_cutoff_gsea,
+                  pAdjustMethod = input$pAdjustMethod_gsea,
+                  nPerm = 5000,
+                  TERM2GENE = m_t2g)
+      em2_read <- setReadable(em2, input$model_organism_gsea, keyType = "ENTREZID")
+      
+      return(list(em2,geneList,em2_read))
+      
+    }
+    
+      
+      # else if (input$PathDB == "msig"){
+      #   em <- enricher(eg[["ENTREZID"]],universe = universe[["ENTREZID"]], TERM2GENE=m_t2g)
+      #   em <- setReadable(em, input$model_organism_path, keyType = "ENTREZID")
+      #   return(list(em,eg))
+      # }
+    
+    
+    # else if (input$type_analysis_path == "gsea"){
+    #   
+    #   if(input$PathDB == "wiki"){
+    #   universe = universe[!duplicated(universe$ENTREZID), ]
+    #   geneList = universe$log2FC
+    #   names(geneList) = universe[["ENTREZID"]]
+    #   geneList = sort(geneList, decreasing=T)
+    #   ewp2 <- GSEA(geneList, TERM2GENE = wpid2gene, TERM2NAME = wpid2name, verbose=FALSE)
+    #   return(list(ewp2,universe))
+    #   }
+    # }
+    
+    #showNotification("Analysis is completed!")
+    
+  })
+  
+  
+  output$runningscore_gsea = renderPlot({
+    gseaplot(gsea_result()[[1]], geneSetID = input$gsea_id_1,  title = gsea_result()[[1]]$Description[input$gsea_id_1])
+  })
+  
+  # width = "800px"
+  output$ridgeplot_gsea = renderPlot(width = 740, {
+    ridgeplot(gsea_result()[[1]], showCategory = input$gsea_id_2, fill = "pvalue")
+    #, geneSetID = input$gsea_id_2, by = "preranked", title = gsea_result()[[1]]$Description[input$gsea_id_2])
+  })
+  
+  output$heatplot = renderPlot({
+    heatplot(gsea_result()[[3]], showCategory = input$gsea_id_3, foldChange=gsea_result()[[2]])
+  })
+  
+  output$emapplot_gsea = renderPlot(width = 740, {
+    emapplot(gsea_result()[[3]], showCategory = input$gsea_id_4, color = "pvalue")
+    
+  })
+  
+  output$output_table_gsea = renderDataTable({
+    as.data.frame(gsea_result()[[3]])
+  })
+  
+  output$downloadData_gsea <- downloadHandler(
+    filename = function() {
+      paste("Results_Pathway-Analysis_",input$PathDB,"_",input$type_analysis_gsea,"_",Sys.Date(),".tsv", sep="")
+    },
+    content = function(file) {
+      write.table(as.data.frame(gsea_result()[[3]]), file, quote = F, sep="\t")
+    }
+  )
+  
   ##########################
   #### Compare Clusters ####
   ##########################
@@ -923,7 +1608,7 @@ server <- function(input, output, session) {
   
   output$DDS <- downloadHandler(
     filename = function() {
-      paste("SampleDataset_",Sys.Date(),".tsv", sep="")
+      paste("SampleDataset_mouse_",Sys.Date(),".tsv", sep="")
     },
     content = function(file) {
       write.csv(as.data.frame(df_sample()), file, quote = F, row.names = F,sep="\t")
