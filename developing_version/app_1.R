@@ -1095,13 +1095,13 @@ server <- function(input, output, session) {
       if (input$PathDB == "wiki"){
         
         if (input$model_organism_path == "org.Hs.eg.db"){
-          wp2gene = read.csv("./wikipath_homo.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
         }
         else if (input$model_organism_path == "org.Mm.eg.db"){
-          wp2gene = read.csv("./wikipath_mouse.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
         }
         else if (input$model_organism_path == "org.Dm.eg.db"){
-          wp2gene = read.csv("./wikipath_drosophila.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
         }
         
         wp2gene = na.omit(wp2gene)
@@ -1233,13 +1233,13 @@ server <- function(input, output, session) {
     if (input$PathDB_gsea == "wiki"){
       
       if (input$model_organism_gsea == "org.Hs.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
       }
       else if (input$model_organism_gsea == "org.Mm.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
       }
       else if (input$model_organism_gsea == "org.Dm.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
       }
       
       wp2gene = na.omit(wp2gene)
