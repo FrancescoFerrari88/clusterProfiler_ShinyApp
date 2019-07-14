@@ -25,7 +25,7 @@ futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger")
 
 
 ui <- dashboardPage(
-  dashboardHeader(title="GO Analysis clusterProfiler", titleWidth = 300),
+  dashboardHeader(title="Genes2Functions", titleWidth = 300),
   dashboardSidebar(
     sidebarMenu(
       menuItem("  Load DE Analysis Table", tabName = "a", icon = icon("chart-line")),
@@ -103,11 +103,11 @@ ui <- dashboardPage(
                                                        box(title = "Thresholds and Summary", status = "primary", solidHeader = TRUE,
                                                              collapsible = TRUE, 
             
-                                                                    sliderInput("fdr_thr", h5("pvalue adjusted threshold"),
-                                                                                min = 0.0001, max = 0.1, value = 0.05),
+                                                                    numericInput("fdr_thr", h5("pvalue adjusted threshold"),
+                                                                                value = 0.05),
                                                                     
-                                                                    sliderInput("fc_thr", h5("fold change threshold"),
-                                                                                min = 1, max = 5, step=0.1, value = 1),
+                                                                    numericInput("fc_thr", h5("fold change threshold"),
+                                                                                value = 1),
                                                            
                                                            br(), br(), htmlOutput("summary"), 
                                                            
@@ -778,7 +778,10 @@ ui <- dashboardPage(
                        downloadButton("DDS_v", 'Download Vignette'),
                        br(),
                        br(),
-                       downloadButton("DDS", 'Download Sample Dataset (mouse)')
+                       downloadButton("DDS", 'Download Sample Dataset (DESeq2 - mouse)'),
+                       br(),
+                       br(),
+                       downloadButton("DDS_1", 'Download Sample Dataset (Compare Cluster - mouse)')
  
                        #tabPanel("Docs",
                        #        includeHTML("/data/manke/group/shiny/ferrari/clusterProfiler_GOenrich/ShinyApp_documentation/Documentation_ShinyApp_clusterProfiler.html")
@@ -1095,13 +1098,13 @@ server <- function(input, output, session) {
       if (input$PathDB == "wiki"){
         
         if (input$model_organism_path == "org.Hs.eg.db"){
-          wp2gene = read.csv("./wikipath_homo.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
         }
         else if (input$model_organism_path == "org.Mm.eg.db"){
-          wp2gene = read.csv("./wikipath_mouse.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
         }
         else if (input$model_organism_path == "org.Dm.eg.db"){
-          wp2gene = read.csv("./wikipath_drosophila.gmt",sep="\t")
+          wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
         }
         
         wp2gene = na.omit(wp2gene)
@@ -1233,13 +1236,13 @@ server <- function(input, output, session) {
     if (input$PathDB_gsea == "wiki"){
       
       if (input$model_organism_gsea == "org.Hs.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_homo.gmt",sep="\t")
       }
       else if (input$model_organism_gsea == "org.Mm.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_mouse.gmt",sep="\t")
       }
       else if (input$model_organism_gsea == "org.Dm.eg.db"){
-        wp2gene = read.csv("~/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
+        wp2gene = read.csv("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/developing_version/wikipath_drosophila.gmt",sep="\t")
       }
       
       wp2gene = na.omit(wp2gene)
@@ -1539,14 +1542,17 @@ server <- function(input, output, session) {
 
     clust_tab_def = list()
     clust_tab = clusts_EnrichGO()
+    print(names(clust_tab))
 
     for (i in 1:length(clust_tab)){
       v = bitr(clust_tab[[i]], fromType=input$id_type_cl, toType=c("ENTREZID","ENSEMBL","SYMBOL"), OrgDb=input$model_organism_cl)
       clust_tab_def[[i]] = v$ENTREZID
+      print(names(clust_tab)[i])
       print(head(clust_tab_def[[i]]))
     }
     names(clust_tab_def) = names(clust_tab)
 
+    
     ck_Tab_def <- compareCluster(geneCluster = clust_tab_def,
                          fun = "enrichGO",
                          OrgDb=input$model_organism_cl,
@@ -1604,17 +1610,30 @@ server <- function(input, output, session) {
     df = fread("/data/processing/clusterProfiler_example_data/DEseq_basic_DEresults.tsv")
     return(df)
     })
+  
+  df_sample_clust = reactive({
+    df = fread("/data/manke/group/ferrari/coding_projects/ShinyApp_clusterProfiler/ShinyApp_documentation/mESC-iNPC_logSignal_H3K79me2_TSSpl3000_5_cl.txt")
+    return(df)
+  })
 
   
   output$DDS <- downloadHandler(
     filename = function() {
-      paste("SampleDataset_mouse_",Sys.Date(),".tsv", sep="")
+      paste("SampleDataset_DESeq2_mouse_",Sys.Date(),".tsv", sep="")
     },
     content = function(file) {
       write.csv(as.data.frame(df_sample()), file, quote = F, row.names = F,sep="\t")
     }
   )
   
+  output$DDS_1 <- downloadHandler(
+    filename = function() {
+      paste("SampleDataset_compareClusters_mouse_",Sys.Date(),".tsv", sep="")
+    },
+    content = function(file) {
+      write.csv(as.data.frame(df_sample_clust()), file, quote = F, row.names = F,sep="\t")
+    }
+  )
   
   output$DDS_v <- downloadHandler(
     filename = "clusterProfiler_vignette.html",
